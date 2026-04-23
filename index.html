@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DS Study Tracker</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; background: #faf9f6; color: #1a1a1a; min-height: 100vh; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+  .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: #fff; border: 1px solid #e8e6e0; border-radius: 10px; padding: 12px 14px; text-align: center; }
+  .stat-val { font-size: 22px; font-weight: 600; font-family: Georgia, serif; }
+  .stat-lbl { font-size: 10px; color: #888; margin-top: 2px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .prog-row { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+  .prog-track { flex: 1; height: 3px; background: #e8e6e0; border-radius: 2px; overflow: hidden; }
+  .prog-fill { height: 100%; background: linear-gradient(90deg,#1D9E75,#7F77DD,#378ADD,#BA7517); border-radius: 2px; transition: width 0.4s; }
+  .sync-status { font-size: 10px; font-family: monospace; white-space: nowrap; transition: color 0.4s; }
+
+  .phase { background: #fff; border: 1px solid #e8e6e0; border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+  .phase-hdr { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; user-select: none; }
+  .phase-num { font-size: 11px; font-family: monospace; font-weight: 700; letter-spacing: 0.1em; min-width: 24px; }
+  .phase-info { flex: 1; }
+  .phase-title { font-size: 15px; font-weight: 600; }
+  .phase-sub { font-size: 11px; color: #888; margin-top: 1px; font-family: monospace; }
+  .phase-meta { text-align: right; margin-right: 10px; min-width: 90px; }
+  .phase-count { font-size: 11px; font-family: monospace; font-weight: 600; }
+  .phase-bar-track { height: 3px; background: #e8e6e0; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+  .phase-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+  .phase-weeks { font-size: 10px; color: #aaa; margin-top: 2px; font-family: monospace; }
+  .chevron { font-size: 10px; color: #aaa; transition: transform 0.2s; display: inline-block; }
+  .chevron.open { transform: rotate(180deg); }
+
+  .phase-body { display: none; padding: 4px 18px 16px; }
+  .phase-body.open { display: block; }
+
+  .task { padding: 12px 0 12px 10px; margin-left: -10px; border-bottom: 1px solid #f0ede8; border-left: 3px solid transparent; }
+  .task:last-of-type { border-bottom: none; }
+  .task-inner { display: flex; gap: 10px; align-items: flex-start; }
+  .task-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; opacity: 0.65; }
+  .task-content { flex: 1; min-width: 0; }
+  .task-header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .task-label { font-size: 14px; line-height: 1.5; font-weight: 500; }
+  .task-type-badge { font-size: 10px; font-family: monospace; color: #ccc; text-transform: uppercase; letter-spacing: 0.06em; }
+  .task-sub { font-size: 12px; color: #888; margin-top: 2px; line-height: 1.5; }
+  .task-links { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .task-link { font-size: 11px; padding: 2px 9px; border-radius: 6px; text-decoration: none; font-family: monospace; }
+
+  .prog-inputs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .pill { display: flex; align-items: center; gap: 6px; background: #f8f7f4; border-radius: 6px; padding: 4px 10px; border: 1px solid #e8e6e0; }
+  .pill-lbl { font-size: 10px; color: #888; font-family: monospace; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+  .pill input[type=text] { border: none; background: transparent; font-size: 12px; width: 90px; color: #1a1a1a; font-family: monospace; outline: none; }
+  .pill input[type=number] { border: none; background: transparent; font-size: 12px; width: 34px; color: #1a1a1a; font-family: monospace; outline: none; text-align: right; -moz-appearance: textfield; }
+  .pill input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .mini-bar { width: 56px; height: 4px; background: #e8e6e0; border-radius: 2px; overflow: hidden; }
+  .mini-fill { height: 100%; border-radius: 2px; transition: width 0.2s; }
+  .mark-done-btn { display: flex; align-items: center; gap: 5px; cursor: pointer; border-radius: 6px; padding: 4px 10px; border: 1px solid #e8e6e0; background: #f8f7f4; transition: all 0.15s; user-select: none; }
+  .check-box { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid #ccc; background: white; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 9px; font-weight: 700; color: white; line-height: 1; }
+  .mark-done-lbl { font-size: 11px; font-family: monospace; }
+
+  .checkpoint { margin-top: 12px; padding: 10px 14px; border-radius: 8px; cursor: pointer; border-left: 3px solid; user-select: none; }
+  .cp-hdr { display: flex; justify-content: space-between; align-items: center; }
+  .cp-title { font-size: 11px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+  .cp-body { font-size: 13px; color: #444; margin-top: 8px; line-height: 1.7; display: none; }
+  .cp-body.open { display: block; }
+
+  .footer { margin-top: 20px; padding: 12px 16px; background: #fff; border-radius: 10px; border: 1px solid #e8e6e0; }
+  .footer-lbl { font-size: 10px; font-family: monospace; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin-bottom: 6px; }
+  .footer-text { font-size: 13px; color: #444; line-height: 1.6; }
+  .reset-wrap { margin-top: 10px; text-align: right; }
+  .reset-wrap button { font-size: 11px; font-family: monospace; color: #ccc; background: none; border: none; cursor: pointer; padding: 4px 0; }
+  .reset-wrap button:hover { color: #e24b4a; }
+
+  @media (max-width: 500px) {
+    .stats { grid-template-columns: repeat(2,1fr); }
+    .stat-val { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stats" id="stats"></div>
+  <div class="prog-row">
+    <div class="prog-track"><div class="prog-fill" id="overall-fill" style="width:0%"></div></div>
+    <div class="sync-status" id="sync-status" style="color:#aaa">loading...</div>
+  </div>
+  <div id="phases"></div>
+  <div class="footer">
+    <div class="footer-lbl">Accountability rule</div>
+    <div class="footer-text">Every 4 weeks: what can you build or explain that you couldn't before? If the answer is weak, you're consuming content, not gaining capability.</div>
+  </div>
+  <div class="reset-wrap"><button onclick="resetAll()">reset all progress</button></div>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz_GB7gQScmdmY9B8WgyK-VVQX00dnPuPwlC9s39W9wsE1GkYmqgSDmwzxegY1OZRSb/exec";
+const FALLBACK_KEY = "ds_tracker_fallback";
+
+const phases = [
+  {
+    id:"p1", num:"01", title:"Math Foundations",
+    sub:"Linear algebra · Calculus · Probability · Statistics",
+    weeks:"8-12 weeks", color:"#1D9E75", light:"#E1F5EE",
+    checkpoint:"Can you explain eigenvector intuition? Derive the normal equations for linear regression by hand? Explain p-values without using the word 'significance'?",
+    tasks:[
+      {id:"p1_t0", label:"3Blue1Brown - Essence of Linear Algebra", sub:"16 videos. Visual intuition first - do this before anything else.", type:"video", links:[{t:"YouTube Playlist",u:"https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab"}]},
+      {id:"p1_t1", label:"Khan Academy - Linear Algebra", sub:"Self-paced refresher. Run alongside 3Blue1Brown.", type:"course", links:[{t:"Khan Academy",u:"https://www.khanacademy.org/math/linear-algebra"}]},
+      {id:"p1_t2", label:"Khan Academy - Calculus 1", sub:"Focus on derivatives and chain rule. Skip what feels solid.", type:"course", links:[{t:"Khan Academy",u:"https://www.khanacademy.org/math/calculus-1"}]},
+      {id:"p1_t3", label:"Mathematics for Machine Learning - textbook (Deisenroth et al.)", sub:"Open after Khan Academy feels solid. Ch 2-5 are the core.", type:"book", links:[{t:"Free PDF",u:"https://mml-book.github.io/"},{t:"Coursera",u:"https://www.coursera.org/specializations/mathematics-machine-learning"}]},
+      {id:"p1_t4", label:"StatQuest - Statistics and Probability playlist", sub:"Start immediately. Don't skip p-values and Bayes.", type:"video", links:[{t:"YouTube",u:"https://www.youtube.com/@statquest/playlists"}]},
+      {id:"p1_t5", label:"3Blue1Brown - Essence of Calculus", sub:"12 videos. After Khan Academy calculus, not before.", type:"video", links:[{t:"YouTube Playlist",u:"https://www.youtube.com/playlist?list=PLZHQObOWTQDMsr9K-rj53DwVRMYO3t5Yr"}]},
+      {id:"p1_t6", label:"Solve 20 problems from MML exercise sets by hand", sub:"Write solutions on paper. Gaps in understanding show up here.", type:"practice", links:[]}
+    ]
+  },
+  {
+    id:"p2", num:"02", title:"Core ML Theory",
+    sub:"Algorithms - Optimization - Model evaluation - Bias-variance tradeoff",
+    weeks:"6-8 weeks", color:"#7F77DD", light:"#EEEDFE",
+    checkpoint:"Can you explain why random forest reduces variance but not bias? Walk through gradient descent without looking anything up? Describe what cross-validation is actually measuring?",
+    tasks:[
+      {id:"p2_t0", label:"Andrew Ng - Machine Learning Specialization (3 courses)", sub:"Do the programming assignments. ~4 weeks at 10 hrs/wk.", type:"course", links:[{t:"Coursera",u:"https://www.coursera.org/specializations/machine-learning-introduction"}]},
+      {id:"p2_t1", label:"Hands-On Machine Learning - Aurelien Geron (Part I min.)", sub:"Ch 1-8. The practitioner bible.", type:"book", links:[{t:"O'Reilly",u:"https://www.oreilly.com/library/view/hands-on-machine-learning/9781492032632/"},{t:"GitHub code",u:"https://github.com/ageron/handson-ml3"}]},
+      {id:"p2_t2", label:"Stanford CS229 lecture notes", sub:"Graduate-level supplement. Read alongside Ng's course.", type:"reading", links:[{t:"CS229 notes",u:"https://cs229.stanford.edu/main_notes.pdf"}]},
+      {id:"p2_t3", label:"Kaggle - Titanic competition (workflow practice)", sub:"Learn the submission workflow. Read 3 winning notebooks.", type:"practice", links:[{t:"Kaggle",u:"https://www.kaggle.com/competitions/titanic"}]},
+      {id:"p2_t4", label:"Build baseline churn model on Telco dataset", sub:"Logistic regression first, then gradient boosted trees.", type:"practice", links:[{t:"Telco dataset",u:"https://www.kaggle.com/datasets/blastchar/telco-customer-churn"}]}
+    ]
+  },
+  {
+    id:"p3", num:"03", title:"Deep Specialization",
+    sub:"Churn - Expansion - Tabular ML - Feature engineering - Survival analysis",
+    weeks:"4-6 weeks", color:"#378ADD", light:"#E6F1FB",
+    checkpoint:"Can you explain why XGBoost handles missing data differently from random forest? Articulate SHAP values to a non-technical executive? Identify temporal leakage before it costs you?",
+    tasks:[
+      {id:"p3_t0", label:"Elements of Statistical Learning - selective chapters", sub:"Ch 2, 7, 15, 16 are the priority. Dense - budget extra time.", type:"book", links:[{t:"Free PDF",u:"https://hastie.su.domains/ElemStatLearn/"}]},
+      {id:"p3_t1", label:"SHAP values - theory and Python library", sub:"Read the paper, work through the docs. Your executive explainability layer.", type:"reading", links:[{t:"SHAP docs",u:"https://shap.readthedocs.io/en/latest/"},{t:"Paper (arXiv)",u:"https://arxiv.org/abs/1705.07874"}]},
+      {id:"p3_t2", label:"Survival analysis - Kaplan-Meier and Cox proportional hazards", sub:"Reframes churn from 'will they leave' to 'when will they leave'.", type:"reading", links:[{t:"lifelines docs",u:"https://lifelines.readthedocs.io/en/latest/"},{t:"Intro video",u:"https://www.youtube.com/watch?v=v1QqpG0NR17"}]},
+      {id:"p3_t3", label:"Kaggle - Feature Engineering course", sub:"Lag features, rolling windows, ratio features, encoding strategies.", type:"course", links:[{t:"Kaggle course",u:"https://www.kaggle.com/learn/feature-engineering"}]},
+      {id:"p3_t4", label:"fast.ai - Practical Deep Learning, Lessons 1-5", sub:"Even skipping deep learning, the tabular lessons are exceptional.", type:"video", links:[{t:"fast.ai",u:"https://course.fast.ai/"}]},
+      {id:"p3_t5", label:"Tabular Kaggle competition - end to end with writeup", sub:"Post a writeup. Explaining forces you to find the gaps.", type:"practice", links:[{t:"Kaggle comps",u:"https://www.kaggle.com/competitions?hostSegment=featured"}]}
+    ]
+  },
+  {
+    id:"p4", num:"04", title:"Research-Level Thinking",
+    sub:"Reading papers - Replication - ArXiv - Community",
+    weeks:"Ongoing", color:"#BA7517", light:"#FAEEDA",
+    checkpoint:"Can you read a methods section and identify core claims? Reproduce a paper's key result in your own code? Critique a model architecture without being told what's wrong?",
+    tasks:[
+      {id:"p4_t0", label:"Papers With Code - set up account and bookmark domain", sub:"Follow 'tabular data', 'survival analysis', 'customer churn'. Review monthly.", type:"practice", links:[{t:"Papers With Code",u:"https://paperswithcode.com/"}]},
+      {id:"p4_t1", label:"Grinsztajn et al. 2022 - read and replicate", sub:"'Why do tree-based models still outperform deep learning on tabular data?'", type:"reading", links:[{t:"arXiv",u:"https://arxiv.org/abs/2207.08815"}]},
+      {id:"p4_t2", label:"Set up ArXiv alerts for your domain", sub:"'churn prediction', 'tabular deep learning', 'customer lifetime value'. 15 min/week.", type:"practice", links:[{t:"ArXiv ML",u:"https://arxiv.org/list/cs.LG/recent"},{t:"arxiv-sanity",u:"http://arxiv-sanity-lite.com/"}]},
+      {id:"p4_t3", label:"Read and replicate one paper per month (ongoing)", sub:"Run their method on your own data, not just their dataset.", type:"practice", links:[]},
+      {id:"p4_t4", label:"Write up every major concept and model you build", sub:"Private doc is fine. Gaps in your explanation are gaps in your understanding.", type:"practice", links:[]},
+      {id:"p4_t5", label:"Join a study group or find an accountability partner", sub:"Replaces structured peer feedback from school. Hardest gap to close solo.", type:"practice", links:[{t:"r/MachineLearning",u:"https://www.reddit.com/r/MachineLearning/"},{t:"Kaggle forums",u:"https://www.kaggle.com/discussions"}]}
+    ]
+  }
+];
+
+const typeIcon  = {book:"📖", video:"▶", course:"🎓", reading:"📄", practice:"⚡"};
+const typeLabel = {book:"Book", video:"Video", course:"Course", reading:"Reading", practice:"Practice"};
+
+let progress  = {};
+let openPhase = "p1";
+let cpOpen    = {};
+let saveTimer = null;
+
+// ── Cloud I/O ─────────────────────────────────────────────────────
+async function load() {
+  setStatus("loading...", "#aaa");
+  try {
+    const res  = await fetch(SCRIPT_URL);
+    const text = await res.text();
+    progress   = (text && text.trim() !== "" && text.trim() !== "{}") ? JSON.parse(text) : {};
+    setStatus("synced", "#aaa");
+  } catch(e) {
+    const fb = localStorage.getItem(FALLBACK_KEY);
+    progress  = fb ? JSON.parse(fb) : {};
+    setStatus("offline - using local cache", "#BA7517");
+  }
+  renderAll();
+}
+
+async function save() {
+  const json = JSON.stringify(progress);
+  localStorage.setItem(FALLBACK_KEY, json);
+  setStatus("saving...", "#aaa");
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {"Content-Type":"text/plain"},
+      body: json
+    });
+    setStatus("saved", "#1D9E75");
+    setTimeout(() => setStatus("synced", "#aaa"), 2000);
+  } catch(e) {
+    setStatus("saved locally (offline)", "#BA7517");
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 1500);
+}
+
+function setStatus(msg, color) {
+  const el = document.getElementById("sync-status");
+  if (el) { el.textContent = msg; el.style.color = color; }
+}
+
+// ── Data helpers ──────────────────────────────────────────────────
+function getP(id) {
+  return progress[id] || {section:"", pct:0, done:false};
+}
+
+function phaseForTask(taskId) {
+  return phases.find(ph => ph.tasks.some(t => t.id === taskId));
+}
+
+// ── Commit handlers (fire on blur / click only) ───────────────────
+function commitSection(id, val) {
+  progress[id] = {...getP(id), section: val};
+  scheduleSave();
+  refreshTaskUI(id);
+  refreshPhaseUI(phaseForTask(id));
+  refreshGlobalUI();
+}
+
+function commitPct(id, val) {
+  const n = Math.min(100, Math.max(0, parseInt(val) || 0));
+  progress[id] = {...getP(id), pct: n, done: n === 100};
+  scheduleSave();
+  refreshTaskUI(id);
+  refreshPhaseUI(phaseForTask(id));
+  refreshGlobalUI();
+}
+
+function toggleDone(id) {
+  const p    = getP(id);
+  const done = !p.done;
+  progress[id] = {...p, done, pct: done ? 100 : p.pct};
+  scheduleSave();
+  refreshTaskUI(id);
+  refreshPhaseUI(phaseForTask(id));
+  refreshGlobalUI();
+}
+
+function resetAll() {
+  if (!confirm("Reset all progress? This cannot be undone.")) return;
+  progress = {};
+  save();
+  renderAll();
+}
+
+// ── Targeted DOM refresh (no full re-render) ──────────────────────
+function refreshTaskUI(taskId) {
+  const phase  = phaseForTask(taskId);
+  if (!phase) return;
+  const p      = getP(taskId);
+  const isDone = !!p.done;
+  const isAct  = !isDone && (p.pct > 0 || p.section);
+
+  const row  = document.getElementById("task-"     + taskId);
+  const lbl  = document.getElementById("lbl-"      + taskId);
+  const fill = document.getElementById("fill-"     + taskId);
+  const btn  = document.getElementById("donebtn-"  + taskId);
+  const box  = document.getElementById("checkbox-" + taskId);
+  const blbl = document.getElementById("donelbl-"  + taskId);
+  const pctI = document.getElementById("pctinput-" + taskId);
+
+  if (row)  row.style.borderLeftColor = isDone ? phase.color : isAct ? phase.color + "55" : "transparent";
+  if (lbl)  { lbl.style.textDecoration = isDone ? "line-through" : "none"; lbl.style.color = isDone ? "#aaa" : "#1a1a1a"; }
+  if (fill) fill.style.width = (p.pct || 0) + "%";
+  if (pctI && document.activeElement !== pctI) pctI.value = p.pct || 0;
+  if (btn)  { btn.style.background = isDone ? phase.color + "18" : "#f8f7f4"; btn.style.borderColor = isDone ? phase.color : "#e8e6e0"; }
+  if (box)  { box.style.background = isDone ? phase.color : "white"; box.style.borderColor = isDone ? phase.color : "#ccc"; box.textContent = isDone ? "checkmark" : ""; box.style.fontSize = isDone ? "9px" : "0"; }
+  if (blbl) { blbl.textContent = isDone ? "complete" : "mark done"; blbl.style.color = isDone ? phase.color : "#888"; }
+}
+
+function refreshPhaseUI(phase) {
+  if (!phase) return;
+  const pd  = phase.tasks.filter(t => getP(t.id).done).length;
+  const pa  = phase.tasks.filter(t => !getP(t.id).done && (getP(t.id).pct > 0 || getP(t.id).section)).length;
+  const pp  = Math.round((pd / phase.tasks.length) * 100);
+  const cnt = document.getElementById("pcount-" + phase.id);
+  const bar = document.getElementById("pbar-"   + phase.id);
+  if (cnt) cnt.innerHTML = pd + "/" + phase.tasks.length + " done" + (pa > 0 ? ' <span style="color:#BA7517">- ' + pa + ' active</span>' : "");
+  if (bar) bar.style.width = pp + "%";
+}
+
+function refreshGlobalUI() {
+  const allTasks = phases.flatMap(p => p.tasks);
+  const total    = allTasks.length;
+  const done     = allTasks.filter(t => getP(t.id).done).length;
+  const active   = allTasks.filter(t => !getP(t.id).done && (getP(t.id).pct > 0 || getP(t.id).section)).length;
+  const pct      = Math.round((done / total) * 100);
+
+  document.getElementById("overall-fill").style.width = pct + "%";
+
+  const ids    = ["s-total","s-active","s-done","s-pct"];
+  const vals   = [total, active, done, pct + "%"];
+  const colors = ["#1a1a1a","#BA7517","#1D9E75", pct > 0 ? "#7F77DD" : "#1a1a1a"];
+  ids.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = vals[i]; el.style.color = colors[i]; }
+  });
+}
+
+// ── Full render ───────────────────────────────────────────────────
+function renderAll() {
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-lbl">Total tasks</div></div>
+    <div class="stat"><div class="stat-val" id="s-active">0</div><div class="stat-lbl">In progress</div></div>
+    <div class="stat"><div class="stat-val" id="s-done">0</div><div class="stat-lbl">Completed</div></div>
+    <div class="stat"><div class="stat-val" id="s-pct">0%</div><div class="stat-lbl">Overall</div></div>
+  `;
+
+  document.getElementById("phases").innerHTML = phases.map(phase => {
+    const isOpen = openPhase === phase.id;
+    const pd = phase.tasks.filter(t => getP(t.id).done).length;
+    const pa = phase.tasks.filter(t => !getP(t.id).done && (getP(t.id).pct > 0 || getP(t.id).section)).length;
+    const pp = Math.round((pd / phase.tasks.length) * 100);
+
+    const taskHTML = phase.tasks.map(task => {
+      const p      = getP(task.id);
+      const isDone = !!p.done;
+      const isAct  = !isDone && (p.pct > 0 || p.section);
+      const bc     = isDone ? phase.color : isAct ? phase.color + "55" : "transparent";
+      const posLbl = task.type==="book" ? "last section" : task.type==="video" ? "last video" : task.type==="course" ? "last lesson" : "position";
+      const ph2    = task.type==="book" ? "e.g. 1.2" : task.type==="video" ? "e.g. video 4" : "e.g. unit 3";
+      const safeSection = (p.section || "").replace(/"/g, "&quot;");
+
+      return `<div class="task" id="task-${task.id}" style="border-left-color:${bc}">
+        <div class="task-inner">
+          <span class="task-icon">${typeIcon[task.type]}</span>
+          <div class="task-content">
+            <div class="task-header">
+              <span class="task-label" id="lbl-${task.id}" style="text-decoration:${isDone?"line-through":"none"};color:${isDone?"#aaa":"#1a1a1a"}">${task.label}</span>
+              <span class="task-type-badge">${typeLabel[task.type]}</span>
+            </div>
+            ${task.sub ? `<div class="task-sub">${task.sub}</div>` : ""}
+            ${task.links.length ? `<div class="task-links">${task.links.map(l=>`<a class="task-link" href="${l.u}" target="_blank" style="border:1px solid ${phase.color}50;color:${phase.color};background:${phase.light}60">${l.t}</a>`).join("")}</div>` : ""}
+            <div class="prog-inputs">
+              <div class="pill">
+                <span class="pill-lbl">${posLbl}</span>
+                <input type="text" value="${safeSection}" placeholder="${ph2}"
+                  onblur="commitSection('${task.id}', this.value)" />
+              </div>
+              <div class="pill">
+                <span class="pill-lbl">%</span>
+                <input type="number" id="pctinput-${task.id}" min="0" max="100" value="${p.pct||0}"
+                  onblur="commitPct('${task.id}', this.value)" />
+                <div class="mini-bar"><div class="mini-fill" id="fill-${task.id}" style="width:${p.pct||0}%;background:${phase.color}"></div></div>
+              </div>
+              <div class="mark-done-btn" id="donebtn-${task.id}"
+                style="background:${isDone?phase.color+"18":"#f8f7f4"};border-color:${isDone?phase.color:"#e8e6e0"}"
+                onclick="toggleDone('${task.id}')">
+                <div class="check-box" id="checkbox-${task.id}"
+                  style="background:${isDone?phase.color:"white"};border-color:${isDone?phase.color:"#ccc"};font-size:${isDone?"9px":"0"}">${isDone?"✓":""}</div>
+                <span class="mark-done-lbl" id="donelbl-${task.id}" style="color:${isDone?phase.color:"#888"}">${isDone?"complete":"mark done"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+
+    return `<div class="phase" id="phase-${phase.id}" style="border-color:${isOpen?phase.color+"60":"#e8e6e0"}">
+      <div class="phase-hdr" onclick="togglePhase('${phase.id}')" style="background:${isOpen?phase.light+"70":"#fff"}">
+        <span class="phase-num" style="color:${phase.color}">${phase.num}</span>
+        <div class="phase-info">
+          <div class="phase-title">${phase.title}</div>
+          <div class="phase-sub">${phase.sub}</div>
+        </div>
+        <div class="phase-meta">
+          <div class="phase-count" id="pcount-${phase.id}" style="color:${phase.color}">${pd}/${phase.tasks.length} done${pa>0?` <span style="color:#BA7517">- ${pa} active</span>`:""}</div>
+          <div class="phase-bar-track"><div class="phase-bar-fill" id="pbar-${phase.id}" style="width:${pp}%;background:${phase.color}"></div></div>
+          <div class="phase-weeks">${phase.weeks}</div>
+        </div>
+        <span class="chevron ${isOpen?"open":""}" id="chev-${phase.id}">v</span>
+      </div>
+      <div class="phase-body ${isOpen?"open":""}" id="pbody-${phase.id}">
+        ${taskHTML}
+        <div class="checkpoint" style="background:${phase.light}80;border-color:${phase.color}" onclick="toggleCp('${phase.id}')">
+          <div class="cp-hdr">
+            <span class="cp-title" style="color:${phase.color}">4-week checkpoint</span>
+            <span style="font-size:10px;color:${phase.color}" id="cpchev-${phase.id}">v</span>
+          </div>
+          <div class="cp-body ${cpOpen[phase.id]?"open":""}" id="cpbody-${phase.id}">${phase.checkpoint}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+
+  refreshGlobalUI();
+}
+
+function togglePhase(id) {
+  openPhase = openPhase === id ? null : id;
+  phases.forEach(ph => {
+    const isO  = openPhase === ph.id;
+    const body = document.getElementById("pbody-" + ph.id);
+    const chev = document.getElementById("chev-"  + ph.id);
+    const card = document.getElementById("phase-" + ph.id);
+    const hdr  = card ? card.querySelector(".phase-hdr") : null;
+    if (body) body.classList.toggle("open", isO);
+    if (chev) chev.classList.toggle("open", isO);
+    if (card) card.style.borderColor = isO ? ph.color + "60" : "#e8e6e0";
+    if (hdr)  hdr.style.background   = isO ? ph.light + "70" : "#fff";
+  });
+}
+
+function toggleCp(id) {
+  cpOpen[id] = !cpOpen[id];
+  const body = document.getElementById("cpbody-" + id);
+  const chev = document.getElementById("cpchev-" + id);
+  if (body) body.classList.toggle("open", cpOpen[id]);
+  if (chev) chev.textContent = cpOpen[id] ? "^" : "v";
+}
+
+load();
+</script>
+</body>
+</html>
